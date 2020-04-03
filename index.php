@@ -16,7 +16,6 @@ $status_code = $extra_info['http_code'];
 $data = json_decode($information);
 
 curl_close($ch);
-
 ?>
 
 <?php require_once('header.php');?>
@@ -25,7 +24,7 @@ curl_close($ch);
 
     <section>
         <div class="container-sm">
-            <h2>Dolar oficial</h2>
+            <h2>Dolar super oficial</h2>
             <?php
             if (($status_code == 200) && ($data->success == "true")) {
             
