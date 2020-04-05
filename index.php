@@ -24,7 +24,7 @@ curl_close($ch);
 
     <section>
         <div class="container-sm">
-            <h2>Dolar super oficial</h2>
+            <h2>Dolar supermega oficial</h2>
             <?php
             if (($status_code == 200) && ($data->success == "true")) {
             
