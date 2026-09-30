@@ -1,0 +1,56 @@
+name: Publicar en GitHub Pages
+
+on:
+  push:
+    branches: [master]
+  schedule:
+    - cron: '17 */4 * * *' # cada 4 horas, para actualizar los datos del BCRA
+  workflow_dispatch: # botón "Run workflow" en la pestaña Actions
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: curl
+          coverage: none
+
+      # La caché de respuestas del BCRA sobrevive entre corridas: si la API falla, se usan los datos anteriores.
+      - uses: actions/cache@v6
+        with:
+          path: cache
+          key: bcra-cache-${{ github.run_id }}
+          restore-keys: bcra-cache-
+
+      - name: Generar sitio estático
+        run: php build.php
+
+      - uses: actions/configure-pages@v6
+
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5

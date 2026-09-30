@@ -9,8 +9,7 @@ if (PHP_SAPI !== 'cli') {
 }
 require_once __DIR__ . '/lib/bcra.php';
 
-$ids = [1, 4, 5, 7, 11, 12, 13, 14, 15, 17, 18, 19, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 40, 44,
-    1187, 1188, 1203, 1207, 1208, 1213, 1215, 1217, 1232, 1233, 1234, 1235, 1236, 1237, 1238, 1240];
+$ids = SERIES_SITIO;
 
 // Ignora la caché vigente y vuelve a descargar (si la API falla, se conserva la copia anterior).
 $GLOBALS['BCRA_FORZAR'] = true;

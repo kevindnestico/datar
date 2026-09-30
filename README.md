@@ -23,7 +23,28 @@ api.php               Endpoint JSON que usan los gráficos (serie, cotizacion, v
 assets/app.js         Utilidades de gráficos (Chart.js 4)
 assets/app.css        Estilos
 partials/             Header, footer y tarjetas de indicadores
-actualizar_cache.php  Precarga la caché (para cron)
+actualizar_cache.php  Precarga la caché (para cron, si se usa un hosting con PHP)
+build.php             Genera la versión estática en dist/ (GitHub Pages)
+.github/workflows/    Publica en GitHub Pages en cada push y cada 4 horas
+```
+
+## Publicación en GitHub Pages
+
+GitHub Pages no ejecuta PHP, así que una GitHub Action corre `php build.php`, que:
+
+1. descarga las series que usan las páginas y las guarda como JSON en `dist/data/`,
+2. renderiza cada página PHP a `.html`,
+3. publica `dist/` en Pages.
+
+Se ejecuta en cada push a `master`, cada 4 horas (para actualizar los datos) y a mano desde *Actions → Publicar en GitHub Pages → Run workflow*.
+En la versión estática, las series que no están pregeneradas (explorador, otras monedas) se piden directo a la API del BCRA desde el navegador.
+
+Configuración única: *Settings → Pages → Build and deployment → Source: **GitHub Actions***.
+
+Para probar la versión estática en local:
+
+```bash
+php build.php && php -S localhost:8081 -t dist
 ```
 
 ## Correr en local

@@ -28,11 +28,11 @@ $titulo = $titulo ?? 'DatAR';
 <body>
 <header class="topbar">
     <div class="topbar-inner">
-        <a class="brand" href="index.php">Dat<span>AR</span></a>
+        <a class="brand" href="<?= enlace('index.php') ?>">Dat<span>AR</span></a>
         <button class="nav-toggle" aria-expanded="false" aria-controls="nav" aria-label="Abrir menú">☰</button>
         <nav id="nav" class="nav">
             <?php foreach ($paginas as $archivo => $nombre): ?>
-                <a href="<?= $archivo ?>" <?= $archivo === $actual ? 'aria-current="page"' : '' ?>><?= h($nombre) ?></a>
+                <a href="<?= enlace($archivo) ?>" <?= $archivo === $actual ? 'aria-current="page"' : '' ?>><?= h($nombre) ?></a>
             <?php endforeach; ?>
         </nav>
         <button class="theme-toggle" type="button" aria-label="Cambiar tema claro/oscuro" title="Cambiar tema">◐</button>

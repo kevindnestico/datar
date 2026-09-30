@@ -4,8 +4,24 @@
     {
       "name": "datar",
       "runtimeExecutable": "/usr/bin/env",
-      "runtimeArgs": ["PHP_CLI_SERVER_WORKERS=8", "/opt/homebrew/bin/php", "-S", "localhost:8080"],
+      "runtimeArgs": [
+        "PHP_CLI_SERVER_WORKERS=8",
+        "/opt/homebrew/bin/php",
+        "-S",
+        "localhost:8080"
+      ],
       "port": 8080
+    },
+    {
+      "name": "datar-estatico",
+      "runtimeExecutable": "/opt/homebrew/bin/php",
+      "runtimeArgs": [
+        "-S",
+        "localhost:8081",
+        "-t",
+        "dist"
+      ],
+      "port": 8081
     }
   ]
 }

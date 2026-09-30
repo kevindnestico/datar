@@ -1,4 +1,4 @@
-/* DatAR — utilidades compartidas para consultar api.php y dibujar gráficos con Chart.js */
+/* DatAR — utilidades compartidas para consultar los datos (api.php o JSON estáticos) y dibujar gráficos con Chart.js */
 const DatAR = (() => {
     const DAY = 86400000;
     const RANGOS = { '1M': 31, '3M': 92, '6M': 183, '1A': 366, '2A': 731, '5A': 1827, '10A': 3653, 'Todo': null };
@@ -30,15 +30,81 @@ const DatAR = (() => {
         return memo.get(url);
     }
 
+    /* En GitHub Pages no hay PHP: se leen los JSON que genera build.php (data/) y,
+       si una serie no está pregenerada, se consulta directo a la API del BCRA (permite CORS). */
+    const STATIC = !!window.DATAR_STATIC;
+    const BCRA = 'https://api.bcra.gob.ar';
+    const enRango = (f, desde, hasta) => (!desde || f >= desde) && (!hasta || f <= hasta);
+
     /** Series de la API monetaria. Devuelve [{id, descripcion, unidad, datos:[{fecha, valor}]}] */
     async function series(ids, desde = '', hasta = '') {
+        if (STATIC) return Promise.all([].concat(ids).map((id) => serieEstatica(id, desde, hasta)));
         const q = new URLSearchParams({ action: 'serie', ids: [].concat(ids).join(',') });
         if (desde) q.set('desde', desde);
         if (hasta) q.set('hasta', hasta);
         return (await getJSON('api.php?' + q)).series;
     }
 
+    async function serieEstatica(id, desde, hasta) {
+        let s;
+        try {
+            s = await getJSON(`data/serie/${id}.json`);
+        } catch (e) {
+            s = await serieDirecta(id, desde, hasta);
+        }
+        return {
+            id: s.id, descripcion: s.descripcion, unidad: s.unidad,
+            datos: s.datos.filter(([f]) => enRango(f, desde, hasta)).map(([fecha, valor]) => ({ fecha, valor })),
+        };
+    }
+
+    /** Serie pedida al BCRA desde el navegador (solo el rango pedido), con el mismo formato que los JSON pregenerados. */
+    async function serieDirecta(id, desde = '', hasta = '') {
+        const key = `directa:${id}:${desde}:${hasta}`;
+        if (!memo.has(key)) {
+            memo.set(key, (async () => {
+                const { variables } = await getJSON('data/variables.json');
+                const v = variables.find((x) => x.idVariable == id) || {};
+                const datos = [];
+                for (let offset = 0, total = 1; offset < total; offset += 3000) {
+                    const q = new URLSearchParams({ limit: 3000, offset });
+                    if (desde) q.set('desde', desde);
+                    if (hasta) q.set('hasta', hasta);
+                    const j = await getJSON(`${BCRA}/estadisticas/v4.0/monetarias/${id}?${q}`);
+                    total = j.metadata?.resultset?.count ?? 0;
+                    const det = j.results?.[0]?.detalle ?? [];
+                    if (!det.length) break;
+                    det.forEach((p) => datos.push([p.fecha, p.valor]));
+                }
+                datos.sort((a, b) => a[0].localeCompare(b[0]));
+                return { id: Number(id), descripcion: v.descripcion || `Serie ${id}`, unidad: v.unidadExpresion || '', datos };
+            })().catch((e) => { memo.delete(key); throw e; }));
+        }
+        return memo.get(key);
+    }
+
     async function cotizacion(moneda, desde = '') {
+        if (STATIC) {
+            try {
+                const { datos } = await getJSON(`data/cotizacion/${moneda}.json`);
+                if (!desde || datos[0]?.[0] <= desde) {
+                    return datos.filter(([f]) => enRango(f, desde)).map(([fecha, valor]) => ({ fecha, valor }));
+                }
+            } catch (e) { /* no está pregenerada: se consulta al BCRA */ }
+            const hasta = isoDate(new Date());
+            const d = desde || isoDate(new Date(Date.now() - 366 * DAY));
+            const out = [];
+            for (let offset = 0, total = 1; offset < total; offset += 1000) {
+                const j = await getJSON(`${BCRA}/estadisticascambiarias/v1.0/Cotizaciones/${moneda}?fechadesde=${d}&fechahasta=${hasta}&limit=1000&offset=${offset}`);
+                total = j.metadata?.resultset?.count ?? 0;
+                if (!j.results?.length) break;
+                for (const dia of j.results) {
+                    const c = dia.detalle?.[0];
+                    if (c && c.tipoCotizacion > 0) out.push({ fecha: dia.fecha, valor: c.tipoCotizacion });
+                }
+            }
+            return out.sort((a, b) => a.fecha.localeCompare(b.fecha));
+        }
         const q = new URLSearchParams({ action: 'cotizacion', moneda });
         if (desde) q.set('desde', desde);
         return (await getJSON('api.php?' + q)).datos;
