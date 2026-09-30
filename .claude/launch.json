@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "datar",
+      "runtimeExecutable": "/usr/bin/env",
+      "runtimeArgs": ["PHP_CLI_SERVER_WORKERS=8", "/opt/homebrew/bin/php", "-S", "localhost:8080"],
+      "port": 8080
+    }
+  ]
+}
