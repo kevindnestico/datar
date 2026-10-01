@@ -12,9 +12,11 @@ if (PHP_SAPI !== 'cli') {
     exit;
 }
 require_once __DIR__ . '/lib/bcra.php';
+require_once __DIR__ . '/lib/indec.php';
 
 const DIST    = __DIR__ . '/dist';
-const PAGINAS = ['index.php', 'cambio.php', 'monetario.php', 'tasas.php', 'precios.php', 'explorador.php'];
+const PAGINAS = ['index.php', 'cambio.php', 'monetario.php', 'tasas.php', 'precios.php', 'explorador.php',
+    'actividad.php', 'precios-salarios.php', 'trabajo-comercio.php'];
 const MONEDAS = ['USD', 'EUR', 'BRL'];
 
 function escribir(string $ruta, string $contenido): void
@@ -75,8 +77,23 @@ foreach (MONEDAS as $m) {
     }
 }
 
-if ($fallas > count(SERIES_SITIO) / 4) {
-    paso("Demasiadas series fallaron ($fallas). No se publica para no pisar la versión anterior.");
+// Series del INDEC (datos.gob.ar)
+escribir(DIST . '/data/indec/_catalogo.json', json(INDEC_SERIES));
+$fallasIndec = 0;
+foreach (array_keys(INDEC_SERIES) as $id) {
+    try {
+        $datos = array_map(fn($p) => [$p['fecha'], $p['valor']], indec_serie($id));
+        [$nombre, $unidad] = INDEC_SERIES[$id];
+        escribir(DIST . "/data/indec/$id.json", json(['id' => $id, 'descripcion' => $nombre, 'unidad' => $unidad, 'datos' => $datos]));
+        paso(sprintf('✓ INDEC %s (%d datos)', $id, count($datos)));
+    } catch (Throwable $e) {
+        $fallasIndec++;
+        paso("✗ INDEC $id: {$e->getMessage()}");
+    }
+}
+
+if ($fallas > count(SERIES_SITIO) / 4 || $fallasIndec > count(INDEC_SERIES) / 4) {
+    paso("Demasiadas series fallaron (BCRA: $fallas, INDEC: $fallasIndec). No se publica para no pisar la versión anterior.");
     exit(1);
 }
 

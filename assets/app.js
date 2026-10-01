@@ -112,6 +112,57 @@ const DatAR = (() => {
 
     const toXY = (datos) => datos.map((p) => ({ x: toTs(p.fecha), y: p.valor }));
 
+    /* ---------- INDEC (API de Series de Tiempo de datos.gob.ar) ---------- */
+    const DATOSGOB = 'https://apis.datos.gob.ar/series/api';
+
+    /** Series completas del INDEC. Devuelve [{id, descripcion, unidad, datos:[{fecha, valor}]}] */
+    async function indec(ids) {
+        ids = [].concat(ids);
+        if (!STATIC) return (await getJSON('api.php?' + new URLSearchParams({ action: 'indec', ids: ids.join(',') }))).series;
+        return Promise.all(ids.map(async (id) => {
+            let s;
+            try {
+                s = await getJSON(`data/indec/${id}.json`);
+            } catch (e) { // no está pregenerada: se pide directo a datos.gob.ar
+                const cat = await getJSON('data/indec/_catalogo.json');
+                const [nombre, unidad, escala = 1] = cat[id] || [id, ''];
+                const j = await getJSON(`${DATOSGOB}/series/?ids=${encodeURIComponent(id)}&limit=5000&format=json&metadata=none`);
+                s = { id, descripcion: nombre, unidad, datos: j.data.filter((p) => p[1] != null).map(([f, v]) => [f, v * escala]) };
+            }
+            return { id: s.id, descripcion: s.descripcion, unidad: s.unidad, datos: s.datos.map(([fecha, valor]) => ({ fecha, valor })) };
+        }));
+    }
+
+    const esTrimestral = (datos) => datos.length > 1 && toTs(datos.at(-1).fecha) - toTs(datos.at(-2).fecha) > 45 * DAY;
+
+    /** 'var_m': variación contra el período anterior; 'var_ia': contra el mismo período del año anterior. */
+    function transformar(datos, modo) {
+        const lag = modo === 'var_m' ? 1 : modo === 'var_ia' ? (esTrimestral(datos) ? 4 : 12) : 0;
+        if (!lag) return datos;
+        return datos.slice(lag).map((p, i) => ({ fecha: p.fecha, valor: (p.valor / datos[i].valor - 1) * 100 }));
+    }
+
+    /** Loader para gráficos: items = [{id, label, modo, kind, signed, dash, color, fill}] */
+    function fromIndec(items) {
+        return async (desde) => {
+            const ss = await indec(items.map((it) => it.id));
+            return ss.map((s, i) => {
+                const { id, modo, ...opts } = items[i];
+                const datos = transformar(s.datos, modo).filter((p) => !desde || p.fecha >= desde);
+                return { label: s.descripcion, periodo: esTrimestral(s.datos) ? 'T' : 'M', ...opts, data: toXY(datos) };
+            });
+        };
+    }
+
+    /** '2.º trim. 2026', 'ago 2026' o '30 sept 2026' según la periodicidad. */
+    function periodoTxt(ts, periodo) {
+        const d = new Date(ts);
+        if (periodo === 'T') return `${Math.floor(d.getMonth() / 3) + 1}.º trim. ${d.getFullYear()}`;
+        if (periodo === 'M') return d.toLocaleDateString('es-AR', { month: 'short', year: 'numeric' });
+        return fechaLarga(ts);
+    }
+    const fuentePagina = () => (document.documentElement.classList.contains('indec') ? 'indec' : 'bcra');
+
     /** Loader simple: una o más variables tal cual vienen de la API (divididas por `div`, p. ej. 1e6 para pasar millones a billones). */
     function fromIds(ids, labels = [], opts = [], div = 1) {
         return async (desde) => (await series(ids, desde)).map((s, i) => ({
@@ -184,10 +235,13 @@ const DatAR = (() => {
             } }, r));
         }
 
+        const fuente = cfg.fuente || fuentePagina();
         root.classList.add('card');
+        root.classList.toggle('card-indec', fuente === 'indec');
         root.replaceChildren(
             el('div', { class: 'card-head' },
-                el('div', {}, el('h3', { class: 'card-title' }, cfg.title), cfg.sub ? el('p', { class: 'card-sub' }, cfg.sub) : null),
+                el('div', {}, el('h3', { class: 'card-title' }, fuente === 'indec' ? el('span', { class: 'badge-indec' }, 'INDEC') : null, cfg.title),
+                    cfg.sub ? el('p', { class: 'card-sub' }, cfg.sub) : null),
                 ranges.length > 1 ? seg : null),
             legend, box,
             el('div', { class: 'card-foot' }, updated, el('span', {}, btnTabla, ' · ', btnCsv)),
@@ -201,7 +255,7 @@ const DatAR = (() => {
             tableBox.replaceChildren(el('table', {},
                 el('thead', {}, el('tr', {}, el('th', {}, 'Fecha'), ...current.map((s) => el('th', { class: 'num' }, s.label)))),
                 el('tbody', {}, ...filas.map((f) => el('tr', {},
-                    el('td', {}, new Date(f.x).toLocaleDateString('es-AR')),
+                    el('td', {}, current[0].periodo ? periodoTxt(f.x, current[0].periodo) : new Date(f.x).toLocaleDateString('es-AR')),
                     ...f.vals.map((v) => el('td', { class: 'num' }, fmt(v, dec))))))));
         }
 
@@ -243,7 +297,7 @@ const DatAR = (() => {
                             backgroundColor: css('--surface'), titleColor: css('--ink'), bodyColor: css('--ink-2'),
                             borderColor: css('--axis'), borderWidth: 1, padding: 10, boxPadding: 4, usePointStyle: true,
                             callbacks: {
-                                title: (items) => items.length ? fechaLarga(items[0].parsed.x) : '',
+                                title: (items) => items.length ? periodoTxt(items[0].parsed.x, current[0].periodo) : '',
                                 label: (it) => ` ${it.dataset.label}: ${fmt(it.parsed.y, decimals)}${cfg.unit ? ' ' + cfg.unit : ''}`,
                                 labelColor: (it) => ({ borderColor: 'transparent', backgroundColor: Array.isArray(it.dataset.backgroundColor) ? it.dataset.backgroundColor[it.dataIndex] : (it.dataset.type === 'bar' ? it.dataset.backgroundColor : it.dataset.borderColor) }),
                             },
@@ -259,7 +313,7 @@ const DatAR = (() => {
                         y: {
                             beginAtZero: !!cfg.beginAtZero,
                             grid: { color: css('--grid') }, border: { display: false },
-                            ticks: { color: css('--muted'), callback: (v) => (Math.abs(v) >= 10000 ? compact(v) : fmt(v, Math.abs(v) < 10 && v % 1 ? 1 : 0)) + (cfg.unit === '%' ? '%' : '') },
+                            ticks: { color: css('--muted'), callback: (v) => (Math.abs(v) >= 10000 ? compact(v) : fmt(v, Math.abs(v) < 10 && v % 1 ? Math.min(Math.max(cfg.decimals ?? 1, 1), 2) : 0)) + (cfg.unit === '%' ? '%' : '') },
                         },
                     },
                 },
@@ -284,7 +338,7 @@ const DatAR = (() => {
                 if (!current.length) throw new Error('No hay datos para este rango.');
                 status.hidden = true;
                 const ult = current[0].data.at(-1).x; // la primera serie es la principal (otras pueden ser proyecciones)
-                updated.textContent = 'Último dato: ' + fechaLarga(ult);
+                updated.textContent = 'Último dato: ' + periodoTxt(ult, current[0].periodo) + (fuente === 'indec' ? ' · Fuente: INDEC' : '');
                 dibujar();
                 if (!tableBox.hidden) renderTabla();
             } catch (e) {
@@ -301,6 +355,92 @@ const DatAR = (() => {
         return api;
     }
 
+    /**
+     * Ranking en barras horizontales (p. ej. qué sectores crecen y cuáles caen).
+     * cfg: { title, sub, modos: [{key, label}], modo, load(modo) => {periodo, items:[{label, valor}]}, unit, decimals, note }
+     */
+    function ranking(target, cfg) {
+        const root = typeof target === 'string' ? document.querySelector(target) : target;
+        const fuente = cfg.fuente || fuentePagina();
+        let modo = cfg.modo || cfg.modos?.[0]?.key;
+        let items = [];
+        const canvas = el('canvas', { role: 'img', 'aria-label': cfg.title });
+        const status = el('div', { class: 'chart-status' }, 'Cargando…');
+        const box = el('div', { class: 'chart-box' }, canvas, status);
+        const updated = el('span');
+        const seg = el('div', { class: 'seg', role: 'group', 'aria-label': 'Medida' });
+        (cfg.modos || []).forEach((m) => seg.append(el('button', { type: 'button', 'aria-pressed': String(m.key === modo), onclick: (ev) => {
+            modo = m.key;
+            seg.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b === ev.currentTarget)));
+            cargar();
+        } }, m.label)));
+        root.classList.add('card');
+        root.classList.toggle('card-indec', fuente === 'indec');
+        root.replaceChildren(
+            el('div', { class: 'card-head' },
+                el('div', {}, el('h3', { class: 'card-title' }, fuente === 'indec' ? el('span', { class: 'badge-indec' }, 'INDEC') : null, cfg.title),
+                    cfg.sub ? el('p', { class: 'card-sub' }, cfg.sub) : null),
+                cfg.modos?.length > 1 ? seg : null),
+            el('div', { class: 'legend' },
+                el('span', {}, el('i', { class: 'bar', style: `background:${color(1)}` }), 'Sube'),
+                el('span', {}, el('i', { class: 'bar', style: `background:${color('--neg')}` }), 'Baja')),
+            box,
+            el('div', { class: 'card-foot' }, updated, el('button', { class: 'btn-link', type: 'button', onclick: () =>
+                descargarCSV(cfg.title, [{ label: cfg.title, data: [] }], items) }, 'Descargar CSV')),
+            cfg.note ? el('p', { class: 'card-sub', style: 'margin-top:.5rem' }, cfg.note) : '',
+        );
+        box.style.height = Math.max(260, 26 * 16 + 40) + 'px';
+
+        function dibujar() {
+            Chart.getChart(canvas)?.destroy();
+            const dec = cfg.decimals ?? 1;
+            const pos = color(1), neg = color('--neg');
+            box.style.height = Math.max(200, items.length * 26 + 40) + 'px';
+            // Si un valor extremo aplasta al resto (p. ej. Pesca +400%), se recorta el eje y el valor va en la etiqueta.
+            const abs = items.map((i) => Math.abs(i.valor)).sort((a, b) => b - a);
+            const tope = abs.length > 2 && abs[0] > 3 * abs[1] ? abs[1] * 1.4 : null;
+            const etiqueta = (i) => (tope && Math.abs(i.valor) > tope ? `${i.label} (${i.valor > 0 ? '+' : ''}${fmt(i.valor, dec)}${cfg.unit === '%' ? '%' : ''}) ›` : i.label);
+            new Chart(canvas, {
+                type: 'bar',
+                data: { labels: items.map(etiqueta), datasets: [{ data: items.map((i) => i.valor), backgroundColor: items.map((i) => (i.valor < 0 ? neg : pos)),
+                    borderRadius: 4, borderSkipped: 'start', maxBarThickness: 18, categoryPercentage: 0.8, barPercentage: 0.9 }] },
+                options: {
+                    indexAxis: 'y', responsive: true, maintainAspectRatio: false, animation: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: css('--surface'), titleColor: css('--ink'), bodyColor: css('--ink-2'), borderColor: css('--axis'), borderWidth: 1, padding: 10,
+                            callbacks: { label: (it) => ` ${fmt(it.parsed.x, dec)}${cfg.unit === '%' ? '%' : ''}` },
+                        },
+                    },
+                    scales: {
+                        x: { min: tope ? Math.max(-tope, Math.min(0, ...items.map((i) => i.valor))) : undefined,
+                            max: tope ? Math.min(tope, Math.max(0, ...items.map((i) => i.valor))) : undefined, grid: { color: css('--grid') }, border: { display: false }, ticks: { color: css('--muted'), callback: (v) => fmt(v, Number.isInteger(v) ? 0 : 1) + (cfg.unit === '%' ? '%' : '') } },
+                        y: { grid: { display: false }, border: { color: css('--axis') }, ticks: { color: css('--ink-2'), autoSkip: false } },
+                    },
+                },
+            });
+        }
+
+        async function cargar() {
+            status.hidden = false;
+            status.textContent = 'Cargando…';
+            try {
+                const r = await cfg.load(modo);
+                items = r.items.filter((i) => isFinite(i.valor)).sort((a, b) => b.valor - a.valor);
+                updated.textContent = r.periodo + (fuente === 'indec' ? ' · Fuente: INDEC' : '');
+                status.hidden = true;
+                dibujar();
+            } catch (e) {
+                status.textContent = 'No se pudieron cargar los datos. ' + e.message;
+            }
+        }
+        const api = { redraw: () => items.length && dibujar(), reload: cargar, root };
+        charts.push(api);
+        cargar();
+        return api;
+    }
+
     function unirPorFecha(series) {
         const map = new Map();
         series.forEach((s, i) => s.data.forEach((p) => {
@@ -310,9 +450,11 @@ const DatAR = (() => {
         return [...map.values()].sort((a, b) => a.x - b.x);
     }
 
-    function descargarCSV(nombre, series) {
-        const filas = [['fecha', ...series.map((s) => `"${s.label.replace(/"/g, '""')}"`)].join(',')];
-        for (const f of unirPorFecha(series)) filas.push([isoDate(new Date(f.x)), ...f.vals.map((v) => v ?? '')].join(','));
+    function descargarCSV(nombre, series, items = null) {
+        const q = (t) => `"${String(t).replace(/"/g, '""')}"`;
+        const filas = items ? ['categoria,valor', ...items.map((i) => `${q(i.label)},${i.valor}`)]
+            : [['fecha', ...series.map((s) => q(s.label))].join(',')];
+        if (!items) for (const f of unirPorFecha(series)) filas.push([isoDate(new Date(f.x)), ...f.vals.map((v) => v ?? '')].join(','));
         const a = el('a', { href: URL.createObjectURL(new Blob([filas.join('\n')], { type: 'text/csv' })), download: nombre.replace(/[^\w\-áéíóúñ ]+/gi, '').trim().replace(/\s+/g, '_') + '.csv' });
         document.body.append(a);
         a.click();
@@ -321,10 +463,10 @@ const DatAR = (() => {
 
     /** Minigráfico para las tarjetas de indicadores. */
     const sparks = [];
-    function sparkline(canvas, data) {
+    function sparkline(canvas, data, colorVar = '--accent') {
         const draw = () => {
             Chart.getChart(canvas)?.destroy();
-            const c = css('--accent');
+            const c = css(colorVar);
             new Chart(canvas, {
                 type: 'line',
                 data: { datasets: [{ data, borderColor: c, borderWidth: 1.5, pointRadius: 0, fill: 'origin', backgroundColor: c + '1a' }] },
@@ -369,5 +511,5 @@ const DatAR = (() => {
         Chart.defaults.font.size = 12;
     }
 
-    return { chart, series, cotizacion, fromIds, combinar, promedioMensual, toXY, toTs, fmt, compact, sparkline, desdeRango, isoDate, el, color };
+    return { chart, ranking, series, cotizacion, indec, fromIds, fromIndec, transformar, esTrimestral, periodoTxt, combinar, promedioMensual, toXY, toTs, fmt, compact, sparkline, desdeRango, isoDate, el, color };
 })();

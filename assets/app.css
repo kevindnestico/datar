@@ -16,6 +16,9 @@
     --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100;
     --s5: #e87ba4; --s6: #008300; --s7: #4a3aa7; --s8: #e34948;
     --neg: #e34948;
+    --bcra: #2a78d6;
+    --indec: #4a3aa7;
+    --indec-soft: rgba(74, 58, 167, .10);
     --radius: 12px;
     --font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
@@ -29,6 +32,7 @@
         --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500;
         --s5: #d55181; --s6: #008300; --s7: #9085e9; --s8: #e66767;
         --neg: #e66767;
+        --bcra: #3987e5; --indec: #9085e9; --indec-soft: rgba(144, 133, 233, .14);
     }
 }
 :root[data-theme="dark"] {
@@ -40,7 +44,16 @@
     --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500;
     --s5: #d55181; --s6: #008300; --s7: #9085e9; --s8: #e66767;
     --neg: #e66767;
+    --bcra: #3987e5; --indec: #9085e9; --indec-soft: rgba(144, 133, 233, .14);
 }
+
+/* Páginas del INDEC: el violeta pasa a ser el acento y el primer color de los gráficos
+   (se intercambian los slots 1 y 7 de la paleta, así el azul queda asociado al BCRA). */
+:root.indec { --accent: #4a3aa7; --s1: #4a3aa7; --s7: #2a78d6; }
+@media (prefers-color-scheme: dark) {
+    :root.indec:not([data-theme="light"]) { --accent: #9085e9; --s1: #9085e9; --s7: #3987e5; }
+}
+:root.indec[data-theme="dark"] { --accent: #9085e9; --s1: #9085e9; --s7: #3987e5; }
 
 /* ---------- Base ---------- */
 * { box-sizing: border-box; }
@@ -66,16 +79,28 @@ main.container { padding-top: 1.75rem; padding-bottom: 3rem; }
 .brand { font-weight: 700; font-size: 1.2rem; color: var(--ink); text-decoration: none; letter-spacing: -.02em; }
 .brand span { color: var(--accent); }
 .nav { display: flex; gap: .25rem; flex: 1; flex-wrap: wrap; }
-.nav a { color: var(--ink-2); text-decoration: none; padding: .4rem .7rem; border-radius: 8px; font-size: .93rem; }
+.nav a { white-space: nowrap; color: var(--ink-2); text-decoration: none; padding: .4rem .7rem; border-radius: 8px; font-size: .93rem; }
 .nav a:hover { background: var(--surface-2); color: var(--ink); }
 .nav a[aria-current="page"] { color: var(--ink); background: var(--surface-2); font-weight: 600; }
+.nav-grupo { display: flex; align-items: center; gap: .15rem; flex-wrap: wrap; }
+.nav-grupo + .nav-grupo { border-left: 1px solid var(--border); padding-left: .5rem; margin-left: .25rem; }
+.fuente {
+    font-size: .68rem; font-weight: 700; letter-spacing: .04em; color: #fff; border-radius: 4px;
+    padding: .1rem .35rem; margin-right: .2rem; line-height: 1.4;
+}
+.fuente-bcra { background: var(--bcra); }
+.fuente-indec { background: var(--indec); }
+.nav-grupo.indec a:hover, .nav-grupo.indec a[aria-current="page"] { background: var(--indec-soft); }
+.nav-grupo.indec a[aria-current="page"] { box-shadow: inset 0 -2px 0 var(--indec); }
 .nav-toggle, .theme-toggle {
     background: none; border: 1px solid var(--border); color: var(--ink); border-radius: 8px;
     width: 36px; height: 36px; cursor: pointer; font-size: 1rem;
 }
 .nav-toggle { display: none; }
-@media (max-width: 860px) {
+@media (max-width: 1180px) {
     .nav-toggle { display: block; margin-left: auto; }
+    .nav-grupo { width: 100%; }
+    .nav-grupo + .nav-grupo { border-left: 0; border-top: 1px solid var(--border); padding: .5rem 0 0; margin: .5rem 0 0; }
     .nav { display: none; position: absolute; left: 0; right: 0; top: 56px; background: var(--surface);
            flex-direction: column; padding: .5rem 16px 1rem; border-bottom: 1px solid var(--border); }
     .nav.open { display: flex; }
@@ -91,6 +116,12 @@ main.container { padding-top: 1.75rem; padding-bottom: 3rem; }
 .tile-value { font-size: 1.6rem; font-weight: 600; letter-spacing: -.01em; margin-top: 2px; }
 .tile-value small { font-size: .85rem; font-weight: 400; color: var(--muted); margin-left: 2px; }
 .tile-meta { font-size: .8rem; color: var(--muted); display: flex; gap: .5rem; flex-wrap: wrap; }
+.tile-indec, .card-indec { border-top: 3px solid var(--indec); }
+.badge-indec {
+    display: inline-block; vertical-align: 2px; font-size: .66rem; font-weight: 700; letter-spacing: .04em;
+    color: #fff; background: var(--indec); border-radius: 4px; padding: .05rem .35rem; margin-right: .45rem;
+}
+.intro-indec { border-left: 3px solid var(--indec); background: var(--indec-soft); padding: .75rem 1rem; border-radius: 6px; font-size: .9rem; color: var(--ink-2); max-width: 80ch; }
 .delta-up { color: var(--up); }
 .delta-down { color: var(--down); }
 .spark { position: relative; height: 36px; margin-top: auto; padding-top: 6px; }

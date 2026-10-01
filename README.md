@@ -1,6 +1,11 @@
-# DatAR — economía argentina con la API del BCRA
+# DatAR — economía argentina en datos
 
-Sitio en PHP (sin frameworks) que consume las [APIs públicas del Banco Central](https://www.bcra.gob.ar/BCRAyVos/catalogo-de-APIs-banco-central.asp) y muestra indicadores y gráficos interactivos. No requiere token.
+Sitio en PHP (sin frameworks) con indicadores y gráficos interactivos a partir de dos fuentes públicas, sin token:
+
+- **BCRA** (azul): [APIs públicas del Banco Central](https://www.bcra.gob.ar/BCRAyVos/catalogo-de-APIs-banco-central.asp).
+- **INDEC** (violeta): series del INDEC publicadas en la [API de Series de Tiempo de datos.gob.ar](https://datos.gob.ar/series/api). El INDEC no tiene API propia.
+
+Publicado en https://datar.revelos-software.com
 
 ## Secciones
 
@@ -12,13 +17,19 @@ Sitio en PHP (sin frameworks) que consume las [APIs públicas del Banco Central]
 | `tasas.php` | Tasas de referencia, depósitos y préstamos; rendimiento real del plazo fijo vs. inflación |
 | `precios.php` | Inflación mensual y acumulada, UVA/ICL/dólar en base 100, calculadora de actualización |
 | `explorador.php` | Buscador de las ~1600 series del BCRA: comparar hasta 4, base 100, CSV, enlace compartible |
+| `actividad.php` (INDEC) | EMAE, actividad por sector, industria (IPI), construcción (ISAC), capacidad instalada, PIB |
+| `precios-salarios.php` (INDEC) | IPC por tipo de precio, rubro y región; salario real; líneas de pobreza e indigencia |
+| `trabajo-comercio.php` (INDEC) | Desocupación, informalidad, Gini, distribución del ingreso, comercio exterior, términos del intercambio, turismo |
+
+Las series del INDEC que usa el sitio están listadas en `INDEC_SERIES` ([lib/indec.php](lib/indec.php)); para agregar una, sumala ahí con su id de datos.gob.ar.
 
 Todos los gráficos tienen selector de rango, tooltip, tabla y descarga CSV, y funcionan en tema claro/oscuro.
 
 ## Estructura
 
 ```
-lib/bcra.php          Cliente de la API con caché en disco (cache/, 6 h)
+lib/bcra.php          Cliente de la API del BCRA con caché en disco (cache/, 6 h)
+lib/indec.php         Series del INDEC (datos.gob.ar) y sus transformaciones
 api.php               Endpoint JSON que usan los gráficos (serie, cotizacion, variables)
 assets/app.js         Utilidades de gráficos (Chart.js 4)
 assets/app.css        Estilos
@@ -32,7 +43,7 @@ build.php             Genera la versión estática en dist/ (GitHub Pages)
 
 GitHub Pages no ejecuta PHP, así que una GitHub Action corre `php build.php`, que:
 
-1. descarga las series que usan las páginas y las guarda como JSON en `dist/data/`,
+1. descarga las series del BCRA y del INDEC que usan las páginas y las guarda como JSON en `dist/data/`,
 2. renderiza cada página PHP a `.html`,
 3. publica `dist/` en Pages.
 

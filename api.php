@@ -5,6 +5,7 @@
  *   api.php?action=serie&ids=1,5&desde=2024-01-01&hasta=2026-12-31
  *   api.php?action=cotizacion&moneda=EUR&desde=2025-01-01&hasta=2026-12-31
  *   api.php?action=variables
+ *   api.php?action=indec&ids=143.3_NO_PR_2004_A_21,74.3_IET_0_M_16   (serie completa)
  */
 require_once __DIR__ . '/lib/bcra.php';
 
@@ -56,6 +57,19 @@ try {
             $hasta = fecha_param('hasta') ?? date('Y-m-d');
             $desde = fecha_param('desde') ?? date('Y-m-d', strtotime('-1 year'));
             responder(['moneda' => $moneda, 'datos' => bcra_cotizacion_historica($moneda, $desde, $hasta)]);
+
+        case 'indec':
+            require_once __DIR__ . '/lib/indec.php';
+            $ids = array_slice(array_filter(explode(',', $_GET['ids'] ?? '')), 0, 16);
+            $out = [];
+            foreach ($ids as $id) {
+                if (!isset(INDEC_SERIES[$id])) {
+                    responder(['error' => "Serie del INDEC no disponible: $id"], 404);
+                }
+                [$nombre, $unidad] = INDEC_SERIES[$id];
+                $out[] = ['id' => $id, 'descripcion' => $nombre, 'unidad' => $unidad, 'datos' => indec_serie($id)];
+            }
+            responder(['series' => $out]);
 
         case 'variables':
             responder(['variables' => array_values(bcra_variables())]);

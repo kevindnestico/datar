@@ -55,7 +55,8 @@ function bcra_http(string $url): array
         return $json;
     }
     $msg = $json['errorMessages'][0] ?? ($err ?: "HTTP $code");
-    throw new BcraException("Error consultando la API del BCRA: $msg");
+    $host = parse_url($url, PHP_URL_HOST);
+    throw new BcraException("Error consultando $host: $msg");
 }
 
 function cache_escribir(string $file, array $data): void

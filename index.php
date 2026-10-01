@@ -22,6 +22,14 @@ require __DIR__ . '/partials/tiles.php';
     [40, 'Índice de alquileres (ICL)', '', 2, 365],
 ]); ?>
 
+<h2><span class="badge-indec">INDEC</span>Actividad, empleo y salarios</h2>
+<?php render_tiles_indec([
+    ['143.3_NO_PR_2004_A_21', 'Actividad (EMAE) interanual', '%', 1, 'var_ia'],
+    ['42.3_EPH_PUNTUATAL_0_M_30', 'Desocupación', '%', 1, 'nivel', 16],
+    ['149.1_TL_INDIIOS_OCTU_0_21', 'Salarios: variación interanual', '%', 1, 'var_ia'],
+    ['74.3_ISC_0_M_19', 'Saldo comercial del mes', ' M US$', 0],
+]); ?>
+
 <h2>Tipo de cambio y reservas</h2>
 <div class="grid-2">
     <section id="c-dolar"></section>
