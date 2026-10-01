@@ -154,3 +154,47 @@ function indec_periodo(string $fecha, bool $trimestral): string
     $meses = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
     return $meses[(int) $m - 1] . ' ' . $y;
 }
+
+/** Fuentes del INDEC tal como figuran en el catálogo de datos.gob.ar. */
+const INDEC_FUENTES = [
+    'Instituto Nacional de Estadística y Censos (INDEC)',
+    'Instituto Nacional de Estadísticas y Censos (INDEC)',
+    'Instituto Nacional de Estadística y Censos (INDEC) y Secretaría de Política Económica, Ministerio de Economía',
+];
+
+/**
+ * Catálogo de series vigentes del INDEC para el explorador (las actualizadas en los últimos 18 meses).
+ * Formato compacto: ['datasets' => [titulo, ...], 'series' => [[id, descripcion, unidad, frecuencia, inicio, fin, idx_dataset], ...]]
+ * frecuencia: D, M, T (trimestral), S (semestral), A (anual).
+ */
+function indec_catalogo(): array
+{
+    $frec = ['R/P1D' => 'D', 'R/P1M' => 'M', 'R/P3M' => 'T', 'R/P6M' => 'S', 'R/P1Y' => 'A'];
+    $corte = date('Y-m-d', strtotime('-18 months'));
+    $campos = [];
+    foreach (INDEC_FUENTES as $fuente) {
+        $start = 0;
+        do {
+            $q = http_build_query(['dataset_source' => $fuente, 'limit' => 1000, 'start' => $start]);
+            $json = bcra_get(INDEC_API . "/search/?$q", 24 * 3600);
+            foreach ($json['data'] ?? [] as $x) {
+                if ($x['field']['time_index_end'] >= $corte) {
+                    $campos[$x['field']['id']] = $x;
+                }
+            }
+            $start += 1000;
+        } while ($start < ($json['count'] ?? 0));
+    }
+
+    $datasets = array_values(array_unique(array_map(fn($x) => trim($x['dataset']['title']), $campos)));
+    sort($datasets);
+    $idx = array_flip($datasets);
+    $series = [];
+    foreach ($campos as $x) {
+        $f = $x['field'];
+        $series[] = [$f['id'], trim($f['description']), $f['units'] ?? '', $frec[$f['frequency']] ?? 'M',
+            substr($f['time_index_start'], 0, 7), substr($f['time_index_end'], 0, 7), $idx[trim($x['dataset']['title'])]];
+    }
+    usort($series, fn($a, $b) => [$a[6], $a[1]] <=> [$b[6], $b[1]]);
+    return ['datasets' => $datasets, 'series' => $series];
+}

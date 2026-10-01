@@ -71,6 +71,11 @@ try {
             }
             responder(['series' => $out]);
 
+        case 'indec_catalogo':
+            require_once __DIR__ . '/lib/indec.php';
+            header('Cache-Control: public, max-age=3600');
+            responder(indec_catalogo());
+
         case 'variables':
             responder(['variables' => array_values(bcra_variables())]);
 

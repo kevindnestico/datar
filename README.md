@@ -16,7 +16,7 @@ Publicado en https://datar.revelos-software.com
 | `monetario.php` | Base monetaria / reservas (la página original), cobertura, agregados M1–M3, depósitos, préstamos |
 | `tasas.php` | Tasas de referencia, depósitos y préstamos; rendimiento real del plazo fijo vs. inflación |
 | `precios.php` | Inflación mensual y acumulada, UVA/ICL/dólar en base 100, calculadora de actualización |
-| `explorador.php` | Buscador de las ~1600 series del BCRA: comparar hasta 4, base 100, CSV, enlace compartible |
+| `explorador.php` | Buscador de las ~1600 series del BCRA y ~3500 series vigentes del INDEC: comparar hasta 4 (mezclando fuentes), base 100, CSV, enlace compartible |
 | `actividad.php` (INDEC) | EMAE, actividad por sector, industria (IPI), construcción (ISAC), capacidad instalada, PIB |
 | `precios-salarios.php` (INDEC) | IPC por tipo de precio, rubro y región; salario real; líneas de pobreza e indigencia |
 | `trabajo-comercio.php` (INDEC) | Desocupación, informalidad, Gini, distribución del ingreso, comercio exterior, términos del intercambio, turismo |

@@ -24,6 +24,13 @@ function es_estatico(): bool
     return getenv('DATAR_STATIC') === '1';
 }
 
+/** Ruta a un archivo propio con su versión (?v=hash), para que el navegador no use una copia vieja tras publicar. */
+function asset(string $ruta): string
+{
+    $archivo = __DIR__ . '/../' . $ruta;
+    return is_file($archivo) ? $ruta . '?v=' . substr(md5_file($archivo), 0, 8) : $ruta;
+}
+
 /** Enlace interno: en la versión estática las páginas son .html */
 function enlace(string $archivo): string
 {

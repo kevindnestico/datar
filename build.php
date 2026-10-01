@@ -92,6 +92,16 @@ foreach (array_keys(INDEC_SERIES) as $id) {
     }
 }
 
+// Catálogo de series del INDEC para el explorador (las series se piden a datos.gob.ar desde el navegador)
+try {
+    $cat = indec_catalogo();
+    escribir(DIST . '/data/indec/_explorador.json', json($cat));
+    paso(sprintf('✓ catálogo INDEC (%d series)', count($cat['series'])));
+} catch (Throwable $e) {
+    $fallasIndec++;
+    paso("✗ catálogo INDEC: {$e->getMessage()}");
+}
+
 if ($fallas > count(SERIES_SITIO) / 4 || $fallasIndec > count(INDEC_SERIES) / 4) {
     paso("Demasiadas series fallaron (BCRA: $fallas, INDEC: $fallasIndec). No se publica para no pisar la versión anterior.");
     exit(1);

@@ -133,6 +133,20 @@ const DatAR = (() => {
         }));
     }
 
+    /** Catálogo de series vigentes del INDEC para el explorador. */
+    const indecCatalogo = () => getJSON(STATIC ? 'data/indec/_explorador.json' : 'api.php?action=indec_catalogo');
+
+    /**
+     * Cualquier serie del INDEC, pedida directo a datos.gob.ar (para el explorador).
+     * Si la unidad es "porcentaje" y todos los valores están entre -1 y 1, vienen como fracción: se pasan a %.
+     */
+    async function indecDirecta(id, unidad = '') {
+        const j = await getJSON(`${DATOSGOB}/series/?ids=${encodeURIComponent(id)}&limit=5000&format=json&metadata=none`);
+        const datos = j.data.filter((p) => p[1] != null).map(([fecha, valor]) => ({ fecha, valor }));
+        const fraccion = /porcentaje|variaci/i.test(unidad) && datos.length && datos.every((p) => Math.abs(p.valor) <= 1);
+        return { datos: fraccion ? datos.map((p) => ({ fecha: p.fecha, valor: p.valor * 100 })) : datos, aPorcentaje: fraccion };
+    }
+
     const esTrimestral = (datos) => datos.length > 1 && toTs(datos.at(-1).fecha) - toTs(datos.at(-2).fecha) > 45 * DAY;
 
     /** 'var_m': variación contra el período anterior; 'var_ia': contra el mismo período del año anterior. */
@@ -158,6 +172,8 @@ const DatAR = (() => {
     function periodoTxt(ts, periodo) {
         const d = new Date(ts);
         if (periodo === 'T') return `${Math.floor(d.getMonth() / 3) + 1}.º trim. ${d.getFullYear()}`;
+        if (periodo === 'S') return `${d.getMonth() < 6 ? 1 : 2}.º sem. ${d.getFullYear()}`;
+        if (periodo === 'A') return String(d.getFullYear());
         if (periodo === 'M') return d.toLocaleDateString('es-AR', { month: 'short', year: 'numeric' });
         return fechaLarga(ts);
     }
@@ -511,5 +527,5 @@ const DatAR = (() => {
         Chart.defaults.font.size = 12;
     }
 
-    return { chart, ranking, series, cotizacion, indec, fromIds, fromIndec, transformar, esTrimestral, periodoTxt, combinar, promedioMensual, toXY, toTs, fmt, compact, sparkline, desdeRango, isoDate, el, color };
+    return { chart, ranking, series, cotizacion, indec, indecCatalogo, indecDirecta, fromIds, fromIndec, transformar, esTrimestral, periodoTxt, combinar, promedioMensual, toXY, toTs, fmt, compact, sparkline, desdeRango, isoDate, el, color };
 })();
